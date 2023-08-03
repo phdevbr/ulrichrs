@@ -1,5 +1,6 @@
-use server::run;
+use server::Server;
 
 fn main() {
-    run();
+    let webserver = Server::new();
+    webserver.run();
 }

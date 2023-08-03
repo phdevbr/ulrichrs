@@ -11,7 +11,19 @@ use std::{
     time::Duration,
 };
 
-pub struct Server;
+enum Method {
+    GET,
+    POST,
+}
+
+struct Route<'a> {
+    method: Method,
+    path: &'a str,
+}
+
+pub struct Server<'a> {
+    routes: Vec<Route<'a>>,
+}
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
@@ -91,10 +103,13 @@ impl Worker {
     }
 }
 
-impl Server {
+impl<'a> Server<'a> {
     pub fn new() -> Self {
-        Self {}
+        Self { routes: Vec::new() }
     }
+
+    pub fn get(&self, path: &str) {}
+    pub fn post(&self, path: &str) {}
 
     pub fn run(&self) {
         let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
