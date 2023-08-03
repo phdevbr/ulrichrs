@@ -91,7 +91,26 @@ impl Worker {
     }
 }
 
-pub fn handle_connection(mut stream: TcpStream) {
+impl Server {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn run(&self) {
+        let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+        let pool = ThreadPool::new(8);
+
+        for stream in listener.incoming() {
+            let stream = stream.unwrap();
+
+            pool.execute(|| {
+                handle_connection(stream);
+            });
+        }
+    }
+}
+
+fn handle_connection(mut stream: TcpStream) {
     let mut buffer = [0; 1024];
     stream.read(&mut buffer).unwrap();
 
@@ -118,17 +137,4 @@ pub fn handle_connection(mut stream: TcpStream) {
 
     stream.write_all(response.as_bytes()).unwrap();
     stream.flush().unwrap();
-}
-
-pub fn run() {
-    let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
-    let pool = ThreadPool::new(8);
-
-    for stream in listener.incoming() {
-        let stream = stream.unwrap();
-
-        pool.execute(|| {
-            handle_connection(stream);
-        });
-    }
 }
