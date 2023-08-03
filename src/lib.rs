@@ -8,7 +8,7 @@ use std::{
         Arc, Mutex,
     },
     thread,
-    time::Duration,
+    // time::Duration,
 };
 
 enum Method {
@@ -104,8 +104,8 @@ impl Worker {
 }
 
 impl<'a> Route<'a> {
-    fn new(method: Method, path: &str) -> Self {
-        Self { method, path }
+    fn new(method: Method, path: &str) -> Route {
+        Route { method, path }
     }
 }
 
@@ -114,42 +114,64 @@ impl<'a> Server<'a> {
         Self { routes: Vec::new() }
     }
 
-    pub fn get(&mut self, path: &str) {
+    pub fn get(&mut self, path: &'a str) {
         self.routes.push(Route::new(Method::GET, path))
     }
-    pub fn post(&mut self, path: &str) {
+    pub fn post(&mut self, path: &'a str) {
         self.routes.push(Route::new(Method::POST, path))
     }
-
+    fn process_routes(&self) -> Vec<Vec<u8>> {
+        let mut routes = Vec::<Vec<u8>>::new();
+        for i in 0..self.routes.len() {
+            let route = &self.routes[i];
+            match route.method {
+                Method::GET => {
+                    routes.push(format!("GET /{} HTTP/1.1\r\n", route.path).into_bytes())
+                }
+                Method::POST => {
+                    routes.push(format!("POST /{} HTTP/1.1\r\n", route.path).into_bytes())
+                }
+            }
+        }
+        routes
+    }
     pub fn run(&self) {
+        let routes = Arc::new(Mutex::new(self.process_routes()));
         let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
         let pool = ThreadPool::new(8);
-
+        println!("Server is running at localhost:7878");
         for stream in listener.incoming() {
             let stream = stream.unwrap();
+            let routes_arc = Arc::clone(&routes);
 
-            pool.execute(|| {
-                handle_connection(stream);
+            pool.execute(move || {
+                handle_connection(stream, routes_arc);
             });
         }
     }
 }
 
-fn handle_connection(mut stream: TcpStream) {
-    let mut buffer = [0; 1024];
+fn handle_connection(mut stream: TcpStream, routes_arc: Arc<Mutex<Vec<Vec<u8>>>>) {
+    let routes = routes_arc.lock().unwrap();
+    let mut buffer = [0; 1024].to_vec();
     stream.read(&mut buffer).unwrap();
 
-    let get = b"GET / HTTP/1.1\r\n";
-    let sleep = b"GET /sleep HTTP/1.1\r\n";
+    // let get: &[u8; 16] = b"GET / HTTP/1.1\r\n";
+    // let sleep = b"GET /sleep HTTP/1.1\r\n";
 
-    let (status_line, filename) = if buffer.starts_with(get) {
-        ("HTTP/1.1 200 OK", "hello.html")
-    } else if buffer.starts_with(sleep) {
-        thread::sleep(Duration::from_secs(5));
-        ("HTTP/1.1 200 OK", "hello.html")
-    } else {
-        ("HTTP/1.1 404 NOT FOUND", "404.html")
-    };
+    let (mut status_line, mut filename) = ("", "");
+
+    for i in 0..routes.len() {
+        (status_line, filename) = if buffer.starts_with(&routes[i]) {
+            ("HTTP/1.1 200 OK", "hello.html")
+        } else {
+            ("HTTP/1.1 404 NOT FOUND", "404.html")
+        };
+        // else if buffer.starts_with(sleep) {
+        //     thread::sleep(Duration::from_secs(5));
+        //     ("HTTP/1.1 200 OK", "hello.html")
+        // }
+    }
 
     let contents = fs::read_to_string(filename).unwrap();
 
