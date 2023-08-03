@@ -103,13 +103,23 @@ impl Worker {
     }
 }
 
+impl<'a> Route<'a> {
+    fn new(method: Method, path: &str) -> Self {
+        Self { method, path }
+    }
+}
+
 impl<'a> Server<'a> {
     pub fn new() -> Self {
         Self { routes: Vec::new() }
     }
 
-    pub fn get(&self, path: &str) {}
-    pub fn post(&self, path: &str) {}
+    pub fn get(&mut self, path: &str) {
+        self.routes.push(Route::new(Method::GET, path))
+    }
+    pub fn post(&mut self, path: &str) {
+        self.routes.push(Route::new(Method::POST, path))
+    }
 
     pub fn run(&self) {
         let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
