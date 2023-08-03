@@ -1,4 +1,4 @@
-use server::Server;
+use ulrichrs::Server;
 
 fn main() {
     let mut webserver = Server::new();
