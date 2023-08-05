@@ -124,22 +124,32 @@ impl<'a> Server<'a> {
         let mut routes = Vec::<Vec<u8>>::new();
         for i in 0..self.routes.len() {
             let route = &self.routes[i];
+            println!("{}", route.path);
             match route.method {
                 Method::GET => {
-                    routes.push(format!("GET /{} HTTP/1.1\r\n", route.path).into_bytes())
+                    let raw_path = format!("GET /{} HTTP/1.1\r\n", route.path).into_bytes();
+                    // let raw = b"GET / HTTP/1.1\r\n";
+                    println!("raw: {:?}", raw_path);
+                    //println!("{:?}", raw_path);
+                    routes.push(raw_path);
                 }
                 Method::POST => {
-                    routes.push(format!("POST /{} HTTP/1.1\r\n", route.path).into_bytes())
+                    routes.push(format!("POST {} HTTP/1.1\r\n", route.path).into_bytes())
                 }
             }
         }
         routes
     }
-    pub fn run(&self) {
+    pub fn run(&self, port: u16) {
+        let port_addr = if !port.to_string().is_empty() {
+            port.to_owned()
+        } else {
+            8080
+        };
         let routes = Arc::new(Mutex::new(self.process_routes()));
-        let listener = TcpListener::bind("127.0.0.1:7878").unwrap();
+        let listener = TcpListener::bind(format!("localhost:{}", port_addr)).unwrap();
         let pool = ThreadPool::new(8);
-        println!("Server is running at localhost:7878");
+        println!("Server is running at localhost:{}", port_addr);
         for stream in listener.incoming() {
             let stream = stream.unwrap();
             let routes_arc = Arc::clone(&routes);
@@ -162,6 +172,7 @@ fn handle_connection(mut stream: TcpStream, routes_arc: Arc<Mutex<Vec<Vec<u8>>>>
     let (mut status_line, mut filename) = ("", "");
 
     for i in 0..routes.len() {
+        println!("processing: {:?}", routes[i].to_owned());
         (status_line, filename) = if buffer.starts_with(&routes[i]) {
             ("HTTP/1.1 200 OK", "hello.html")
         } else {
